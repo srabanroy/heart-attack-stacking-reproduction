@@ -1,0 +1,15 @@
+attribute,paper_Table9,observed_in_file,match
+age,29 to 77,29 to 77,yes
+sex,"0, 1","0, 1",yes
+cp,"0, 1, 2, 3","0, 1, 2, 3",yes
+trestbps,94 to 200,94 to 200,yes
+chol,126 to 564,126 to 564,yes
+fbs,"0, 1","0, 1",yes
+restecg,"0, 1, 2","0, 1, 2",yes
+thalach,71 to 202,71 to 202,yes
+exang,"0, 1","0, 1",yes
+oldpeak,0 to 6.2,0.0 to 6.2,yes
+slope,"0, 1, 2","0, 1, 2",yes
+ca,0 to 3,"0, 1, 2, 3, 4",NO
+thal,1 to 3,"0, 1, 2, 3",NO
+target,"0, 1","0, 1",yes

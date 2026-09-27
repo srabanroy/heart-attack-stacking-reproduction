@@ -1,0 +1,20 @@
+# Minimum versions required to run both notebooks.
+#
+# Deliberately specified as minimums rather than exact pins so the project installs on
+# any reasonably recent Python. The exact versions the submitted results were produced
+# with are recorded in the README (section "Environment used for the reported results")
+# and are printed by the first cell of each notebook.
+#
+# Requires Python >= 3.9.
+
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+xgboost>=2.0
+scipy>=1.10
+matplotlib>=3.7
+seaborn>=0.13
+joblib>=1.3
+
+# Needed only to open or re-execute the notebooks:
+jupyter>=1.0

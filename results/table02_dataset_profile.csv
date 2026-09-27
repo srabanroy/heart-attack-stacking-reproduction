@@ -1,0 +1,2 @@
+rows_in_file,distinct_records,duplicate_rows,duplicate_fraction,min_copies,max_copies,class_1_rows,class_0_rows,class_1_distinct,class_0_distinct
+1025,302,723,0.7054,3,8,526,499,164,138

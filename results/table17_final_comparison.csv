@@ -1,0 +1,5 @@
+Study,Protocol,Accuracy,AUC,Valid estimate of generalisation?
+"Bhagat et al. (2024), as published","single random 80/20 split, duplicates on both sides",0.9853,0.988,No - 97.6% test/train record overlap
+Part 1 reproduction (this work),same protocol as the paper,0.9853658536585366,1.0,No - reproduces the same flaw
+"Paper's ensemble, leakage-free evaluation","deduplicated, repeated stratified 5-fold CV",0.8297814207650274,0.9036143177809843,Yes
+"RM-Stack (proposed, this work)","deduplicated, repeated stratified 5-fold CV",0.8436174863387979,0.9187176326759661,Yes
