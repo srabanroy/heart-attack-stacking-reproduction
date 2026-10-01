@@ -148,7 +148,8 @@ table9
 #
 # The paper reports no integrity checks beyond missing values. We add one that turns out to
 # be decisive for interpreting its results: **how many of the 1025 rows are actually distinct
-# patients?**
+# clinical records?** Without a patient identifier, exact row identity establishes duplicated
+# records rather than patient identity.
 
 # %%
 feature_cols = [c for c in df.columns if c != "target"]
@@ -177,7 +178,7 @@ profile.to_csv(RES / "table02_dataset_profile.csv", index=False)
 profile.T
 
 # %% [markdown]
-# **Finding 3.1 — the dataset contains only 302 distinct patients, not 1025.**
+# **Finding 3.1 — the dataset contains only 302 distinct clinical records, not 1025.**
 # Every distinct record is repeated 3, 4 or 8 times. The file is an *upsampled* copy of the
 # 303-row UCI Cleveland dataset, not an aggregation of four hospital databases as Section 4
 # of the paper claims. The consequences of this for the paper's headline result are developed
@@ -545,9 +546,9 @@ plt.show()
 # %% [markdown]
 # ## 10. Leakage diagnostic — why 98.53% is not a generalisation estimate
 #
-# Section 3 established that the 1025 rows contain only 302 distinct patients, each repeated
-# 3–8 times. A random row-level split therefore does not separate patients — it separates
-# *copies*. We now measure exactly how bad this is: for each test row, does an identical
+# Section 3 established that the 1025 rows contain only 302 distinct clinical records, each
+# repeated 3–8 times. A random row-level split therefore separates *copies* of the same
+# record. We now measure exactly how bad this is: for each test row, does an identical
 # clinical record also appear in the training set?
 
 # %%
@@ -645,8 +646,8 @@ leak_df.round(4)
 # **Finding 10.1 — the decisive result of Part 1.**
 #
 # On average **97.6% of test rows have an identical clinical record sitting in the training
-# set**. The models are not being asked to generalise to new patients; they are being asked to
-# recall patients they have already seen. Once records are kept intact across the split
+# set**. The models are not being asked to generalise to unseen records; they are being asked
+# to recall exact profiles already present in training. Once records are kept intact across the split
 # (`GroupKFold` on the record identity), the stacking ensemble falls from ~98.5% to roughly
 # 77%, an inflation of more than twenty accuracy points.
 #
@@ -658,7 +659,7 @@ leak_df.round(4)
 #   heart-disease results obtained under clean protocols.
 #
 # The paper's headline number is reproducible but it is **not an estimate of predictive
-# performance on unseen patients**. Addressing this is the starting point of Part 2.
+# performance on unseen records**. Addressing this is the starting point of Part 2.
 
 # %% [markdown]
 # ## 11. Internal inconsistencies in the published paper
@@ -724,3 +725,11 @@ inconsistencies
 # 6. Eight internal inconsistencies in the published paper were catalogued.
 #
 # Part 2 builds a solution that is designed around these findings.
+
+# %% [markdown]
+# ## Generative AI acknowledgement
+#
+# Generative AI tools assisted with experimental planning, portions of code generation and
+# commenting, debugging, figure and table preparation, and editing for clarity. The notebook
+# was executed and checked against its saved outputs. The student remains responsible for
+# understanding, validating and defending every method and result.

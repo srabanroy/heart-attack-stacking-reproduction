@@ -1,0 +1,13 @@
+# Tested core environment for reproducing the submitted numerical results.
+# Python 3.12.13 was used for the saved notebook outputs.
+
+numpy==2.4.4
+pandas==3.0.2
+scikit-learn==1.8.0
+xgboost==3.2.0
+scipy==1.17.1
+matplotlib==3.10.9
+seaborn==0.13.2
+joblib==1.6.0
+threadpoolctl==3.7.0
+jupyter>=1.0,<2

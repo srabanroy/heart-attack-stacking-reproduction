@@ -95,9 +95,9 @@ box(31, 24.2, 48, 5.6, "meta-learner:  Logistic Regression (C = 1)", C_META, bol
     fs=9.2)
 arrow(55, 31.6, 55, 30.1, C_META)
 
-# ------------------------------- STAGE 4: calibrated output and operating point
+# ------------------------------- STAGE 4: probability assessment and operating point
 stage(14.5, "OUTPUT", C_OUT)
-box(13, 10.5, 24, 7.6, "calibrated probability\nof heart disease", C_OUT, fs=8.9)
+box(13, 10.5, 24, 7.6, "predicted probability\n(calibration assessed)", C_OUT, fs=8.9)
 box(42, 10.5, 24, 7.6, "threshold selection\nmaximise F2\n(recall weighted 4×)", C_OUT, fs=8.6)
 box(71, 10.5, 26, 7.6, "referral decision\nrecall 0.88 → 0.98", C_OUT, bold=True, fs=8.9)
 arrow(46, 23.8, 27, 18.5, C_OUT)
@@ -112,8 +112,8 @@ ax.text(53, 3.9,
         "2 complementary members rather than 6 correlated ones",
         ha="center", va="center", fontsize=7.9, style="italic", color=C_MUTED)
 ax.text(53, 1.9,
-        "probability meta-features rather than hard labels  ·  25 folds rather than a "
-        "single split  ·  decision threshold chosen rather than assumed",
+        "calibration assessed rather than assumed  ·  25 folds rather than a single split  ·  "
+        "decision threshold chosen rather than assumed",
         ha="center", va="center", fontsize=7.9, style="italic", color=C_MUTED)
 
 plt.savefig(FIGS / "fig13_rmstack_architecture.png", dpi=210, bbox_inches="tight",

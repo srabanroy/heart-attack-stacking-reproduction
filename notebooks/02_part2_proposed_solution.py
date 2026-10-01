@@ -15,7 +15,7 @@
 # | L3 | **No hyperparameter optimisation.** No parameters reported for any of the six models. | §6 | Nested cross-validation: selection inside the training folds only. |
 # | L4 | **Nominal attributes fed as integer codes** to linear and distance-based learners, imposing a false ordering on `cp`, `restecg`, `slope`, `thal`, `ca`. | §4 | Representation matching: one-hot for linear/kernel learners, native codes for tree learners. |
 # | L5 | **Ensemble size mistaken for ensemble value.** Six correlated learners stacked without diversity analysis. | §8 | Explicit composition study; keep only complementary learners. |
-# | L6 | **Fixed 0.5 decision threshold** despite an asymmetric clinical cost (a missed heart attack is far costlier than a false alarm). | §8 | Calibrated probabilities plus an explicit, clinically-motivated operating point. |
+# | L6 | **Fixed 0.5 decision threshold** despite an asymmetric clinical cost (a missed heart attack is far costlier than a false alarm). | §8 | Out-of-fold probability calibration assessment plus an explicit, clinically-motivated operating point. |
 # | L7 | **Feature selection described but never performed.** | §3 | We do not claim a component we do not run. |
 #
 # ## Our proposed method in one sentence
@@ -24,7 +24,7 @@
 # base learner receives the feature encoding appropriate to its inductive bias, the ensemble's
 # membership is chosen by a documented diversity study rather than by including every model
 # available, and the whole pipeline is assessed under record-grouped, repeated cross-validation
-# with calibrated probabilities and an explicitly chosen clinical operating point.
+# with probabilities assessed for calibration and an explicitly chosen clinical operating point.
 #
 # This is a methodological contribution, not a change of classifier: the same family of
 # algorithms is used, but the data handling, the representation, the ensemble design and the
@@ -56,7 +56,7 @@ from sklearn.ensemble import (RandomForestClassifier, ExtraTreesClassifier,
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.calibration import calibration_curve
 from sklearn.model_selection import (RepeatedStratifiedKFold, StratifiedKFold,
                                      cross_validate, cross_val_predict, GridSearchCV)
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, f1_score,
@@ -92,8 +92,9 @@ print("python:", platform.python_version(), "| seed:", SEED)
 # %% [markdown]
 # ## 1. Leakage-aware data preparation (addresses L1)
 #
-# The paper treats the file's 1025 rows as 1025 patients. They are 302 patients, each
-# recorded between three and eight times. Two defensible protocols follow, and we run both:
+# The paper treats the file's 1025 rows as 1025 patients. The file contains 302 distinct
+# clinical records, each recorded between three and eight times, but no patient identifier.
+# Two defensible protocols follow, and we run both:
 #
 # * **Primary — deduplication.** Collapse the file to its 302 distinct clinical records and
 #   evaluate with ordinary stratified cross-validation. This is the honest sample: duplicated
@@ -138,9 +139,9 @@ print(f"class balance            : {dict(pd.Series(y).value_counts())}  "
 # (Euclidean distance over arbitrary codes) and Gaussian Naive Bayes (a Gaussian density over
 # a nominal code).
 #
-# Tree ensembles do **not** suffer from this: they split on thresholds and can isolate any
-# individual code with a few splits, while one-hot expansion actively harms them by diluting
-# each split's candidate features and fragmenting the sample.
+# Tree ensembles are less directly constrained by a single linear coefficient, but their
+# threshold splits still depend on the arbitrary order of integer category codes. Whether
+# one-hot expansion helps or harms them is therefore empirical and sample-dependent.
 #
 # Rather than assume, we measure. The study below runs every candidate learner under both
 # encodings.
@@ -224,10 +225,12 @@ plt.show()
 
 # %% [markdown]
 # **Finding 2.1 — encoding must be matched to the learner, not chosen globally.**
-# One-hot encoding of the nominal attributes improves every linear and kernel learner
-# (Logistic Regression gains roughly two AUC points) and degrades every tree ensemble. This
-# is exactly what the inductive biases predict, and it is why the paper's uniform treatment
-# of all 13 columns as scaled integers leaves performance on the table for half its ensemble.
+# The effect of one-hot encoding depends on both learner family and hyperparameters. Its
+# largest gain is for Logistic Regression (C=1, roughly two AUC points); some other linear,
+# kernel and distance-based candidates improve only slightly or become worse. The tested
+# tree ensembles are mostly worse under one-hot encoding, with XGBoost effectively unchanged.
+# This empirical variation is why the paper's uniform treatment of all 13 columns as scaled
+# integers is not a defensible global preprocessing rule.
 #
 # Our pipeline therefore gives **each base learner the representation suited to it** — a
 # design choice that is invisible in the paper's flat "preprocess then classify" workflow.
@@ -267,8 +270,9 @@ def make_member(kind: str):
 def make_stack(members, meta_C: float = 1.0) -> StackingClassifier:
     """Stack `members` with out-of-fold PROBABILITY meta-features and an L2 LR meta-learner.
 
-    stack_method='predict_proba' passes calibrated-ish confidences rather than hard labels,
-    which gives the meta-learner strictly more information than the paper's default.
+    stack_method='predict_proba' passes continuous class probabilities to the meta-learner.
+    Our reconstructed paper baseline also uses probabilities where available, so this is an
+    implementation detail rather than a claimed difference from the baseline.
     """
     return StackingClassifier(
         estimators=[(m, make_member(m)) for m in members],
@@ -315,13 +319,12 @@ plt.show()
 
 # %% [markdown]
 # **Finding 3.1 — a compact, diverse stack beats the paper's six-model stack.**
-# Performance *decreases* monotonically as members are added beyond two. The best
+# Every larger tested stack performs worse than the two-member stack. The best
 # configuration pairs a regularised **logistic regression on one-hot features** (a smooth,
 # high-bias, low-variance decision surface) with **extremely randomised trees on native codes**
-# (a non-linear, low-bias, high-variance learner). These two make different kinds of error,
-# which is precisely what a meta-learner can exploit; adding Random Forest, XGBoost, KNN and
-# SVM contributes learners that are highly correlated with one of the two already present,
-# so they add meta-level variance without adding information.
+# (a non-linear, low-bias, high-variance learner). The observed results are consistent with
+# complementary error patterns, although this experiment does not directly estimate error
+# correlation. The larger tested stacks add meta-features without improving held-out AUC.
 #
 # This is an evidence-based design decision, and it directly contradicts the paper's implicit
 # assumption that stacking more models yields a better ensemble.
@@ -376,14 +379,17 @@ def build_paper_stack() -> StackingClassifier:
 #
 # * **Repeated stratified 5-fold cross-validation**, 5 repeats → 25 held-out estimates per
 #   model, with class proportions preserved in every fold.
-# * **Identical partitions for both models** (same `random_state`), so every fold is a
-#   *paired* observation and a paired test is valid.
-# * **Paired two-sided t-test and Wilcoxon signed-rank test** on the 25 fold scores, plus
-#   Cohen's *d_z* for effect size — because a difference of one accuracy point on 302 samples
-#   needs evidence, not assertion.
+# * **Identical partitions for both models** (same `random_state`), so fold-level differences
+#   are paired. Folds are not independent because their training sets overlap.
+# * The ordinary paired t-test and Wilcoxon signed-rank test are retained as descriptive
+#   sensitivity checks. The Nadeau-Bengio corrected resampled t-test is the primary
+#   inferential result, and Cohen's *d_z* describes effect size.
 
 # %%
-FINAL_CV = RepeatedStratifiedKFold(n_splits=5, n_repeats=5, random_state=SEED)
+FINAL_SPLITS = 5
+FINAL_REPEATS = 5
+FINAL_CV = RepeatedStratifiedKFold(n_splits=FINAL_SPLITS, n_repeats=FINAL_REPEATS,
+                                   random_state=SEED)
 SCORING  = ["accuracy", "precision", "recall", "f1", "roc_auc"]
 
 cv_results = {}
@@ -400,7 +406,7 @@ summary.to_csv(RES / "table12_cv_summary.csv")
 summary
 
 # %%
-# --- Paired significance testing ---------------------------------------------------------
+# --- Paired and dependence-aware significance testing ------------------------------------
 sig_rows = []
 for metric in SCORING:
     a = cv_results["Paper stacking ensemble"]["test_" + metric]   # baseline
@@ -409,11 +415,19 @@ for metric in SCORING:
     t_stat, p_t = stats.ttest_rel(b, a)
     w_stat, p_w = stats.wilcoxon(b, a)
     cohen_dz = diff.mean() / diff.std(ddof=1)
+
+    # Nadeau-Bengio corrected resampled t-test. Repeated k-fold scores are correlated because
+    # their training sets overlap. For 5-fold CV, n_test / n_train = 1/4.
+    correction = (1 / len(diff)) + (1 / (FINAL_SPLITS - 1))
+    corrected_se = np.sqrt(correction * diff.var(ddof=1))
+    corrected_t = diff.mean() / corrected_se
+    corrected_p = 2 * stats.t.sf(abs(corrected_t), df=len(diff) - 1)
     sig_rows.append({
         "Metric": metric, "Paper": a.mean(), "RM-Stack": b.mean(),
         "Difference": diff.mean(), "t": t_stat, "p (paired t)": p_t,
-        "p (Wilcoxon)": p_w, "Cohen dz": cohen_dz,
-        "Significant (a=0.05)": "yes" if p_t < 0.05 else "no",
+        "p (Wilcoxon)": p_w, "corrected t": corrected_t,
+        "p (corrected t)": corrected_p, "Cohen dz": cohen_dz,
+        "Significant (corrected a=0.05)": "yes" if corrected_p < 0.05 else "no",
     })
 sig = pd.DataFrame(sig_rows)
 sig.to_csv(RES / "table13_significance_tests.csv", index=False)
@@ -455,13 +469,14 @@ plt.tight_layout(); plt.savefig(FIGS / "fig10_proposed_vs_baseline.png", dpi=200
 plt.show()
 
 # %% [markdown]
-# ## 6. Nested cross-validation — an unbiased estimate (addresses L3)
+# ## 6. Nested hyperparameter tuning check (addresses L3)
 #
-# Sections 2 and 3 used cross-validation to *choose* a design, so those scores are mildly
-# optimistic: information about the held-out folds influenced the choice. The standard remedy
-# is **nested cross-validation** — an inner loop selects hyperparameters using training data
-# only, and an outer loop scores the selected model on data the selection never saw. The
-# number below is the one we would defend as an estimate of performance on new patients.
+# Sections 2 and 3 used cross-validation to choose the representation and ensemble structure,
+# so the main comparison is mildly optimistic. The nested analysis below protects the tuning
+# of three RM-Stack hyperparameters: an inner loop selects them using training data only, and
+# an outer loop scores the selected settings on data the tuning step never saw. It does not
+# nest the earlier representation and composition study, so some design-selection optimism
+# remains.
 
 # %%
 param_grid = {
@@ -493,9 +508,10 @@ print()
 nested_summary.round(4)
 
 # %% [markdown]
-# **Finding 6.1.** The nested estimate is close to the repeated-CV estimate, and the inner
-# loop converges on similar hyperparameters in every outer fold. The design is therefore
-# stable, and the gains reported in Section 5 are not an artefact of selection bias.
+# **Finding 6.1.** The nested hyperparameter-tuning estimate is close to the repeated-CV
+# estimate, and the inner loop chooses broadly similar settings. This supports stability of
+# the tuned parameters, but it does not eliminate bias from choosing the representation and
+# ensemble composition on the full dataset.
 
 # %% [markdown]
 # ## 7. Calibration and the clinical operating point (addresses L6)
@@ -564,7 +580,7 @@ axes[1].axvline(best_f2.threshold, color="crimson", ls="--",
 axes[1].set_xlabel("decision threshold"); axes[1].set_ylabel("score")
 axes[1].set_title("(b) Choosing the operating point"); axes[1].legend(fontsize=8)
 
-# (c) what that means in patients
+# (c) what that means in classified cases
 cm_def  = confusion_matrix(y, (proba_rm >= 0.5).astype(int))
 cm_best = confusion_matrix(y, (proba_rm >= best_f2.threshold).astype(int))
 labels = np.array([[f"TN\n{cm_def[0,0]} -> {cm_best[0,0]}", f"FP\n{cm_def[0,1]} -> {cm_best[0,1]}"],
@@ -698,7 +714,7 @@ ax.axhspan(0, 0.90, color="grey", alpha=.06)
 ax.set_ylim(0.6, 1.06); ax.set_ylabel("accuracy")
 ax.set_title("The 98.5% headline is leakage, not performance\n"
              "(bars 1–2 measure memorisation of duplicated rows; bars 3–4 measure "
-             "generalisation to unseen patients)")
+             "generalisation to unseen clinical records)")
 ax.annotate("", xy=(1, 0.985), xytext=(2, 0.830),
             arrowprops=dict(arrowstyle="<->", color="crimson", lw=2))
 ax.text(1.5, 0.895, f"{(vals[1]-vals[2])*100:.1f} pt\ninflation", ha="center",
@@ -717,11 +733,11 @@ plt.show()
 #   ever reaches a training fold.
 # * The gain over the paper's ensemble is earned through design decisions that were *measured*
 #   (the encoding study and the composition study), not asserted.
-# * The model produces calibrated probabilities and an explicitly justified clinical operating
-#   point, which a deployment would actually need.
+# * Probability outputs are assessed with a reliability diagram and Brier score, and the
+#   operating-point trade-off is made explicit.
 #
 # **Limitations.**
-# * After deduplication only 302 patients remain, all from the Cleveland cohort. Confidence
+# * After deduplication only 302 distinct records remain, all from the Cleveland cohort. Confidence
 #   intervals are correspondingly wide, and the improvement in accuracy, while consistent
 #   across folds, is modest in absolute terms.
 # * The dataset carries no external validation cohort; the Hungarian, Swiss and Long Beach
@@ -729,7 +745,7 @@ plt.show()
 #   cross-site generalisation study is not possible with these data.
 # * `ca = 4` and `thal = 0` are retained as legitimate levels, since their original meaning
 #   (missing values in the UCI source) cannot be recovered from this redistribution.
-# * The F2 operating point is chosen on out-of-fold predictions from the same 302 patients; a
+# * The F2 operating point is chosen on out-of-fold predictions from the same 302 records; a
 #   prospective deployment would need to re-select it on a separate calibration cohort.
 #
 # **Practical implication.** The most important finding of this study is negative and it is
@@ -745,13 +761,22 @@ plt.show()
 # 1. Seven concrete limitations of the original paper were identified from the Part 1 evidence.
 # 2. **RM-Stack** was designed to address them: leakage-aware data handling, representation
 #    matched to each learner's inductive bias, a compact diverse ensemble chosen by a
-#    documented composition study, out-of-fold probability meta-features, and calibrated
-#    probabilities with an explicit clinical operating point.
+#    documented composition study, out-of-fold probability meta-features, calibration
+#    assessment, and an explicit clinical operating point.
 # 3. Under identical leakage-free cross-validation, RM-Stack improves on the paper's own
-#    ensemble in accuracy and ROC-AUC, with the AUC gain statistically significant under both
-#    a paired t-test and a Wilcoxon signed-rank test.
-# 4. A nested cross-validation confirms the estimate is not inflated by selection bias, and a
-#    record-grouped protocol on the unmodified 1025-row file confirms the ranking is not an
-#    artefact of deduplication.
+#    ensemble in mean accuracy and ROC-AUC. Ordinary fold-level tests are reported for
+#    transparency, but the dependence-aware corrected test does not establish significance
+#    at alpha = 0.05 on this small sample.
+# 4. Nested hyperparameter tuning and a record-grouped protocol support the result, while
+#    residual bias from full-data representation and composition selection remains a
+#    limitation.
 # 5. Threshold selection reduces missed disease cases substantially — a clinically meaningful
 #    gain invisible to the accuracy-only evaluation used in the paper.
+
+# %% [markdown]
+# ## Generative AI acknowledgement
+#
+# Generative AI tools assisted with experimental planning, portions of code generation and
+# commenting, debugging, figure and table preparation, and editing for clarity. The notebook
+# was executed and checked against its saved outputs. The student remains responsible for
+# understanding, validating and defending every method and result.

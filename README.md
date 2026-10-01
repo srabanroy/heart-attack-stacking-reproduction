@@ -30,13 +30,17 @@ pp. 36351–36375, 2025. DOI: [10.1007/s11042-024-19293-7](https://doi.org/10.10
 
 Both notebooks are committed **with their outputs already executed**, so the results can be
 read without running anything. They are also fully re-runnable from a clean environment
-(Section 3).
+(Section 3). Use the reproduction requirements file when exact agreement with the submitted
+tables is required.
 
 ## 2. Dataset
 
-`data/heart.csv` is the Kaggle *Heart Disease Dataset*
+`data/heart.csv` is a public mirror of the Kaggle *Heart Disease Dataset*
 (`johnsmith88/heart-disease-dataset`) named in Section 4 of the paper: 1025 rows, 13
-predictors plus a binary `target`.
+predictors plus a binary `target`. The submitted file was obtained from the Hugging Face
+dataset mirror `vishal323/heart`, because direct Kaggle access was unavailable. Its schema,
+row count and initial records match the widely redistributed Kaggle file; the checksum below
+identifies the exact file used for every reported result.
 
 | property | value |
 |---|---|
@@ -69,10 +73,21 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-`requirements.txt` specifies minimum versions rather than exact pins, so the project installs
-on any reasonably recent Python. The exact versions used to produce the submitted results are
-listed under *Environment used for the reported results* below, and the first cell of each
-notebook prints the versions actually in use.
+For a convenient installation using compatible minimum versions:
+
+```bash
+pip install -r requirements.txt
+```
+
+For numerical reproduction of the submitted tables, use the tested core environment:
+
+```bash
+pip install -r requirements-reproduction.txt
+```
+
+The first cell of each notebook prints the versions actually in use. Later library versions
+can change fitted probabilities and tree importance values slightly even when the seed and
+fold assignments are unchanged; model rankings and the main conclusions should remain stable.
 
 ### Run
 
@@ -98,8 +113,9 @@ composition study and the nested cross-validation dominate). Notebook 01 also co
 ### Determinism
 
 Every stochastic component is seeded with `SEED = 42`, and all cross-validation splitters
-take an explicit `random_state`. Re-running the notebooks reproduces every number in the
-report exactly.
+take an explicit `random_state`. Exact numerical agreement is expected under the tested core
+versions in `requirements-reproduction.txt`. Compatible newer versions may produce small
+floating-point or estimator-level differences.
 
 The notebooks locate the project root by searching upward for `data/heart.csv`, so they run
 correctly whether they are launched from the project root, from `notebooks/`, or from an
@@ -110,7 +126,7 @@ editor whose working directory is set elsewhere. To override, set the environmen
 
 | Component | Version |
 |---|---|
-| Python | 3.11.15 |
+| Python | 3.12.13 |
 | numpy | 2.4.4 |
 | pandas | 3.0.2 |
 | scikit-learn | 1.8.0 |
@@ -118,9 +134,10 @@ editor whose working directory is set elsewhere. To override, set the environmen
 | scipy | 1.17.1 |
 | matplotlib | 3.10.9 |
 | seaborn | 0.13.2 |
+| joblib | 1.6.0 |
 
-The code was additionally verified on Python 3.10 with scikit-learn 1.7.2, pandas 2.3.3 and
-numpy 2.2.6, and produces the same results, so it is not tied to one library generation.
+The code also runs on newer compatible libraries, but fitted probabilities and tree
+importance values can differ slightly. Use the environment above for the submitted tables.
 
 ## 4. Headline results
 
@@ -139,23 +156,29 @@ numpy 2.2.6, and produces the same results, so it is not tied to one library gen
 The paper's headline claim reproduces almost exactly. The diagnostic in notebook 01 then
 shows why that number is not a measure of predictive performance: under the paper's random
 row-level split, **97.6% of test rows have an identical clinical record in the training
-set**. The models are recalling patients they have already seen.
+set**. Without patient identifiers, the defensible conclusion is that the models are recalling
+exact clinical profiles already present in training rather than generalising to unseen records.
 
 ### Part 2 — proposed solution (RM-Stack)
 
 Both models evaluated under identical leakage-free repeated stratified 5-fold
 cross-validation (25 folds) on the 302 distinct records:
 
-| Metric | Paper's ensemble | RM-Stack (proposed) | Δ | paired *t* p-value |
+| Metric | Paper's ensemble | RM-Stack (proposed) | Δ | corrected *t* p-value |
 |---|---|---|---|---|
-| Accuracy | 0.8298 | **0.8436** | +0.0138 | 0.038 |
-| Precision | 0.8253 | **0.8465** | +0.0212 | 0.002 |
-| Recall | 0.8769 | 0.8767 | −0.0002 | 0.983 |
-| F1 | 0.8478 | **0.8583** | +0.0105 | 0.088 |
-| ROC-AUC | 0.9036 | **0.9187** | +0.0151 | 0.001 |
+| Accuracy | 0.8298 | **0.8436** | +0.0138 | 0.423 |
+| Precision | 0.8253 | **0.8465** | +0.0212 | 0.215 |
+| Recall | 0.8769 | 0.8767 | −0.0002 | 0.994 |
+| F1 | 0.8478 | **0.8583** | +0.0105 | 0.515 |
+| ROC-AUC | 0.9038 | **0.9188** | +0.0150 | 0.167 |
 
-Confirmed by nested cross-validation (accuracy 0.8543, AUC 0.9217) and by a record-grouped
-protocol on the unmodified 1025-row file (accuracy 0.7720 → 0.8191, AUC 0.8768 → 0.9081).
+The proposed model has higher mean accuracy, precision, F1 and ROC-AUC, but none of these
+differences is statistically significant under the dependence-aware corrected resampled
+t-test. The ordinary paired and Wilcoxon tests are retained in the results table as
+descriptive sensitivity checks; they are anti-conservative when cross-validation training
+sets overlap. Nested hyperparameter tuning gives accuracy 0.8543 and AUC 0.9219. Under the
+record-grouped protocol on the unmodified 1025-row file, accuracy changes from 0.7720 to
+0.8162 and AUC from 0.8768 to 0.9079.
 
 ## 5. What RM-Stack is
 
@@ -164,16 +187,19 @@ A representation-matched, leakage-aware stacking ensemble:
 1. **Leakage-aware data handling** — deduplication to 302 distinct records (primary), with
    record-grouped cross-validation on the full file as a sensitivity check.
 2. **Representation matching** — the five nominal attributes (`cp`, `restecg`, `slope`,
-   `thal`, `ca`) are one-hot encoded for the linear member and left as native integer codes
-   for the tree member, because the encoding study in notebook 02 shows one-hot helps linear
-   and kernel learners and harms tree ensembles.
-3. **Compact, diverse ensemble** — a regularised logistic regression plus extremely
-   randomised trees, selected by a documented composition study showing that performance
-   *falls* as more correlated members are added at n = 302.
+   `thal`, `ca`) are one-hot encoded for the selected linear member and left as native integer
+   codes for the selected tree member. Notebook 02 shows that the effect of encoding depends
+   on both learner family and hyperparameters, so preprocessing is selected per learner rather
+   than imposed globally.
+3. **Compact ensemble** — a regularised logistic regression plus extremely randomised trees,
+   selected by a documented composition study in which every larger tested stack performed
+   worse than the two-member stack at n = 302.
 4. **Out-of-fold probability meta-features** with a regularised logistic-regression
    meta-learner.
-5. **Calibrated probabilities and an explicit clinical operating point** chosen by
-   maximising F2, which weights recall four times as heavily as precision.
+5. **Calibration assessment and an explicit clinical operating point** chosen by maximising
+   F2, which weights recall four times as heavily as precision. The notebook evaluates
+   calibration with a reliability diagram and Brier score; it does not fit a separate
+   probability-calibration model.
 
 ## 6. Results index
 
@@ -215,8 +241,18 @@ justified there; in summary:
 | Meta-learner | "can be any model" | Logistic Regression | First option the authors list; standard in the stacking literature; the scikit-learn default |
 | Feature importance model | not stated | Random Forest Gini | The only one of their six models producing the profile shown in their Fig. 2 |
 
-## 8. Attribution
+## 8. Generative AI acknowledgement
 
-The dataset is redistributed from its public Kaggle source so that the results can be
-reproduced without a Kaggle account, as the task brief requires. It remains the property of
-its original publishers.
+Generative AI tools were used to help plan the experimental design, draft and comment parts
+of the implementation, diagnose reproducibility problems, prepare figures and tables, and
+edit supporting text for clarity. Every notebook was executed and checked against its saved
+tables and figures. The final report prose and video presentation must be written and
+delivered by the student, who remains responsible for understanding and defending every
+methodological choice and result.
+
+## 9. Attribution
+
+The dataset is redistributed from the public Hugging Face mirror identified in Section 2 so
+that the results can be reproduced without an external account. The paper identifies the
+corresponding Kaggle dataset as its source. The dataset remains the property of its original
+publishers.
