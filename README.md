@@ -73,12 +73,6 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-For a convenient installation using compatible minimum versions:
-
-```bash
-pip install -r requirements.txt
-```
-
 For numerical reproduction of the submitted tables, use the tested core environment:
 
 ```bash
