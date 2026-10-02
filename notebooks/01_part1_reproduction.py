@@ -648,7 +648,7 @@ leak_df.round(4)
 # On average **97.6% of test rows have an identical clinical record sitting in the training
 # set**. The models are not being asked to generalise to unseen records; they are being asked
 # to recall exact profiles already present in training. Once records are kept intact across the split
-# (`GroupKFold` on the record identity), the stacking ensemble falls from ~98.5% to roughly
+# (using the deterministic `grouped_folds` helper defined above), the stacking ensemble falls from ~98.5% to roughly
 # 77%, an inflation of more than twenty accuracy points.
 #
 # This explains every pattern we observed:
@@ -727,9 +727,9 @@ inconsistencies
 # Part 2 builds a solution that is designed around these findings.
 
 # %% [markdown]
-# ## Generative AI acknowledgement
+# ## Generative AI Acknowledgement
 #
-# Generative AI tools assisted with experimental planning, portions of code generation and
-# commenting, debugging, figure and table preparation, and editing for clarity. The notebook
-# was executed and checked against its saved outputs. The student remains responsible for
-# understanding, validating and defending every method and result.
+# I used generative AI tools to help plan the experiments, draft and comment portions of this
+# code, assist with debugging, and prepare the figures and tables. I ran the code myself, checked
+# the outputs against the saved result files, and corrected the generated material where it was
+# wrong. I take full responsibility for the accuracy and final content of this work.

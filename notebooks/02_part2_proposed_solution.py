@@ -774,9 +774,9 @@ plt.show()
 #    gain invisible to the accuracy-only evaluation used in the paper.
 
 # %% [markdown]
-# ## Generative AI acknowledgement
+# ## Generative AI Acknowledgement
 #
-# Generative AI tools assisted with experimental planning, portions of code generation and
-# commenting, debugging, figure and table preparation, and editing for clarity. The notebook
-# was executed and checked against its saved outputs. The student remains responsible for
-# understanding, validating and defending every method and result.
+# I used generative AI tools to help plan the experiments, draft and comment portions of this
+# code, assist with debugging, and prepare the figures and tables. I ran the code myself, checked
+# the outputs against the saved result files, and corrected the generated material where it was
+# wrong. I take full responsibility for the accuracy and final content of this work.

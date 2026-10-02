@@ -241,10 +241,12 @@ justified there; in summary:
 | Meta-learner | "can be any model" | Logistic Regression | First option the authors list; standard in the stacking literature; the scikit-learn default |
 | Feature importance model | not stated | Random Forest Gini | The only one of their six models producing the profile shown in their Fig. 2 |
 
-## 8. Generative AI acknowledgement
+## 8. Generative AI Acknowledgement
 
-Generative AI tools were used to help plan the experimental design, draft and comment parts
-of the implementation. All code was run locally on my machine.
+I used generative AI tools to help plan the experiments, draft and comment portions of this
+code, assist with debugging, and prepare the figures and tables. I ran the code myself, checked
+the outputs against the saved result files, and corrected the generated material where it was
+wrong. I take full responsibility for the accuracy and final content of this work.
 
 ## 9. Attribution
 
