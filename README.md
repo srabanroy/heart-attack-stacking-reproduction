@@ -238,9 +238,8 @@ justified there; in summary:
 ## 8. Generative AI Acknowledgement
 
 I used generative AI tools to help plan the experiments, draft and comment portions of this
-code, assist with debugging, and prepare the figures and tables. I ran the code myself, checked
-the outputs against the saved result files, and corrected the generated material where it was
-wrong. I take full responsibility for the accuracy and final content of this work.
+code, assist with debugging. I ran the code myself, checked the outputs against the saved result
+files. I take full responsibility for the accuracy and final content of this work.
 
 ## 9. Attribution
 
