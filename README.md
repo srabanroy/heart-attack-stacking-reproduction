@@ -244,11 +244,7 @@ justified there; in summary:
 ## 8. Generative AI acknowledgement
 
 Generative AI tools were used to help plan the experimental design, draft and comment parts
-of the implementation, diagnose reproducibility problems, prepare figures and tables, and
-edit supporting text for clarity. Every notebook was executed and checked against its saved
-tables and figures. The final report prose and video presentation must be written and
-delivered by the student, who remains responsible for understanding and defending every
-methodological choice and result.
+of the implementation. All code was run locally on my machine.
 
 ## 9. Attribution
 
