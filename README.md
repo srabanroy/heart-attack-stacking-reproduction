@@ -174,6 +174,16 @@ sets overlap. Nested hyperparameter tuning gives accuracy 0.8543 and AUC 0.9219.
 record-grouped protocol on the unmodified 1025-row file, accuracy changes from 0.7720 to
 0.8162 and AUC from 0.8768 to 0.9079.
 
+### Interpretation boundary
+
+Using identical leakage-free folds controls which records are evaluated, but it does not
+equalise model-development effort. RM-Stack's representation and ensemble composition were
+selected using the full 302-record development dataset, and RM-Stack was tuned while the
+reconstructed baseline retained library-default settings where the paper was silent. The
+higher mean scores therefore compare the complete pipelines and cannot be attributed solely
+to representation matching or ensemble composition. None of the five metric differences was
+significant under the dependence-aware corrected test.
+
 ## 5. What RM-Stack is
 
 A representation-matched, leakage-aware stacking ensemble:
