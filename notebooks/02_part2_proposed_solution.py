@@ -12,7 +12,7 @@
 # |---|---|---|---|
 # | L1 | **Duplicate leakage.** 723 of 1025 rows are duplicates; 97.6% of test rows have an identical record in training. | §10, Fig. 7 | Deduplicate to 302 distinct records (primary protocol); record-grouped CV on the full file (sensitivity check). |
 # | L2 | **Single unrepeated hold-out split**, no variance estimate, no confidence interval. | §9, Fig. 6 | Repeated stratified 5-fold CV (5 repeats = 25 estimates) with paired significance testing. |
-# | L3 | **No hyperparameter optimisation.** No parameters reported for any of the six models. | §6 | Nested cross-validation: selection inside the training folds only. |
+# | L3 | **No hyperparameter optimisation.** No parameters reported for any of the six models. | §6 | Nested cross-validation protects final hyperparameter tuning inside the training folds. Earlier representation and ensemble-composition choices remain preselected and exploratory. |
 # | L4 | **Nominal attributes fed as integer codes** to linear and distance-based learners, imposing a false ordering on `cp`, `restecg`, `slope`, `thal`, `ca`. | §4 | Representation matching: one-hot for linear/kernel learners, native codes for tree learners. |
 # | L5 | **Ensemble size mistaken for ensemble value.** Six correlated learners stacked without diversity analysis. | §8 | Explicit composition study; keep only complementary learners. |
 # | L6 | **Fixed 0.5 decision threshold** despite an asymmetric clinical cost (a missed heart attack is far costlier than a false alarm). | §8 | Out-of-fold probability calibration assessment plus an explicit, clinically-motivated operating point. |
@@ -352,11 +352,14 @@ rm_stack = build_rm_stack()
 print(rm_stack)
 
 # %% [markdown]
-# ### The baseline we must beat
+# ### Comparator and interpretation boundary
 #
-# To make the comparison fair, the paper's ensemble is re-created exactly as in Part 1 and
-# evaluated under **the same leakage-free protocol** as our model. This isolates the effect of
-# our design changes from the effect of fixing the evaluation.
+# Both pipelines are evaluated on identical leakage-free folds, which controls the evaluation
+# samples. However, this is not a fully symmetric development comparison: RM-Stack's
+# representation, composition and hyperparameters were deliberately selected, whereas the
+# reconstructed paper ensemble retains library-default settings where the paper was silent.
+# The observed difference therefore compares the complete pipelines and cannot isolate the
+# contribution of representation matching, ensemble composition or tuning.
 
 # %%
 def build_paper_stack() -> StackingClassifier:
@@ -471,12 +474,15 @@ plt.show()
 # %% [markdown]
 # ## 6. Nested hyperparameter tuning check (addresses L3)
 #
-# Sections 2 and 3 used cross-validation to choose the representation and ensemble structure,
-# so the main comparison is mildly optimistic. The nested analysis below protects the tuning
-# of three RM-Stack hyperparameters: an inner loop selects them using training data only, and
-# an outer loop scores the selected settings on data the tuning step never saw. It does not
-# nest the earlier representation and composition study, so some design-selection optimism
-# remains.
+# Sections 2 and 3 used the full 302-record development dataset to examine representation and
+# ensemble structure, so the main comparison contains design-selection optimism. The nested
+# analysis below protects the tuning of three RM-Stack hyperparameters: an inner loop selects
+# them using training data only, and an outer loop scores the selected settings on unseen
+# held-out data. It does not repeat representation or composition selection inside each outer
+# training fold. In addition, RM-Stack is tuned while the reproduced baseline retains
+# library-default settings. Consequently, this analysis estimates the performance of the
+# selected RM-Stack pipeline but does not establish that representation matching or ensemble
+# composition caused its advantage.
 
 # %%
 param_grid = {
@@ -731,8 +737,8 @@ plt.show()
 #   than a single number.
 # * Every preprocessing step is fitted inside the cross-validation loop, so no test statistic
 #   ever reaches a training fold.
-# * The gain over the paper's ensemble is earned through design decisions that were *measured*
-#   (the encoding study and the composition study), not asserted.
+# * The encoding and composition studies provide exploratory evidence for the selected design,
+#   although they do not isolate the causal effect of either choice.
 # * Probability outputs are assessed with a reliability diagram and Brier score, and the
 #   operating-point trade-off is made explicit.
 #
@@ -740,6 +746,13 @@ plt.show()
 # * After deduplication only 302 distinct records remain, all from the Cleveland cohort. Confidence
 #   intervals are correspondingly wide, and the improvement in accuracy, while consistent
 #   across folds, is modest in absolute terms.
+# * Representation and ensemble composition were selected using the full 302-record development
+#   dataset rather than repeated inside every outer training fold. The resulting performance
+#   estimate may therefore contain design-selection optimism.
+# * RM-Stack's members and hyperparameters were deliberately selected, whereas the reconstructed
+#   baseline uses library defaults where the paper reports no settings. Part of the mean
+#   difference may reflect tuning or model selection, so it cannot be attributed solely to
+#   representation matching or ensemble composition.
 # * The dataset carries no external validation cohort; the Hungarian, Swiss and Long Beach
 #   databases named in the paper's Section 4 are not actually present in this file, so a
 #   cross-site generalisation study is not possible with these data.
@@ -763,13 +776,13 @@ plt.show()
 #    matched to each learner's inductive bias, a compact diverse ensemble chosen by a
 #    documented composition study, out-of-fold probability meta-features, calibration
 #    assessment, and an explicit clinical operating point.
-# 3. Under identical leakage-free cross-validation, RM-Stack improves on the paper's own
-#    ensemble in mean accuracy and ROC-AUC. Ordinary fold-level tests are reported for
-#    transparency, but the dependence-aware corrected test does not establish significance
-#    at alpha = 0.05 on this small sample.
-# 4. Nested hyperparameter tuning and a record-grouped protocol support the result, while
-#    residual bias from full-data representation and composition selection remains a
-#    limitation.
+# 3. Under identical leakage-free folds, RM-Stack achieved higher mean accuracy and ROC-AUC
+#    than the reproduced paper ensemble. None of the five metric differences was significant
+#    under the dependence-aware corrected test.
+# 4. The comparison estimates the difference between the complete pipelines. Representation
+#    and composition were selected using the full development dataset, and RM-Stack received
+#    more tuning than the default-based reproduced baseline. The results therefore do not
+#    establish that any individual design choice caused the observed mean gain.
 # 5. Threshold selection reduces missed disease cases substantially — a clinically meaningful
 #    gain invisible to the accuracy-only evaluation used in the paper.
 
